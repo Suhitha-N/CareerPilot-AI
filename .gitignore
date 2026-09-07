@@ -1,0 +1,23 @@
+# Environment variables
+.env
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
+
+# IDE
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+# Uploaded user files
+backend/uploads/
+
+# Legacy / unused project artifacts
+User/
