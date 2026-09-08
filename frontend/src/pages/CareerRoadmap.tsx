@@ -9,6 +9,8 @@ type RoadmapWeek = {
   skills: string[]
   tasks: string[]
   project: string
+  milestone?: string
+  category?: string
   completed: boolean
 }
 
@@ -30,20 +32,25 @@ function CareerRoadmap() {
   const [roadmap, setRoadmap] =
     useState<RoadmapResponse | null>(null)
 
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const [loading, setLoading] =
+    useState(true)
+
+  const [error, setError] =
+    useState('')
 
   const [completedTasks, setCompletedTasks] =
     useState<Record<string, boolean>>({})
 
-  const [savingTask, setSavingTask] = useState<string | null>(null)
+  const [savingTask, setSavingTask] =
+    useState<string | null>(null)
 
   // =========================================================
   // LOAD ROADMAP
   // =========================================================
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token')
+    const token =
+      localStorage.getItem('access_token')
 
     if (!token) {
       navigate('/login')
@@ -54,7 +61,7 @@ function CareerRoadmap() {
   }, [navigate])
 
   // =========================================================
-  // FETCH ROADMAP FROM BACKEND
+  // FETCH / AUTO-GENERATE ROADMAP
   // =========================================================
 
   async function fetchRoadmap() {
@@ -62,117 +69,327 @@ function CareerRoadmap() {
       setLoading(true)
       setError('')
 
-      const token = localStorage.getItem('access_token')
+      const token =
+        localStorage.getItem('access_token')
 
       if (!token) {
         navigate('/login')
         return
       }
 
-      const response = await fetch(
-        'http://127.0.0.1:8001/api/career-roadmap',
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
+      // -------------------------------------------------------
+      // STEP 1:
+      // Try to load the existing roadmap.
+      // -------------------------------------------------------
+
+      const roadmapResponse =
+        await fetch(
+          'http://127.0.0.1:8001/api/career-roadmap',
+          {
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
           },
-        },
-      )
+        )
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          setError(
-            'No career roadmap found. Please generate your roadmap first.',
-          )
-        } else if (response.status === 401) {
-          localStorage.removeItem('access_token')
-          navigate('/login')
-        } else {
-          setError(
-            `Failed to load roadmap. Server returned ${response.status}.`,
-          )
-        }
+      // -------------------------------------------------------
+      // Authentication failure
+      // -------------------------------------------------------
 
+      if (
+        roadmapResponse.status === 401
+      ) {
+        localStorage.removeItem(
+          'access_token',
+        )
+
+        navigate('/login')
         return
       }
 
-      const data = await response.json()
+      let roadmapData: any = null
 
-      console.log(
-        'Career Roadmap API response:',
-        data,
-      )
+      if (roadmapResponse.ok) {
+        roadmapData =
+          await roadmapResponse.json()
 
-      // -----------------------------------------------------
-      // ROADMAP WEEKS
-      // -----------------------------------------------------
+        console.log(
+          'Career Roadmap API response:',
+          roadmapData,
+        )
+      }
+
+      // -------------------------------------------------------
+      // STEP 2:
+      // Check whether the existing roadmap actually
+      // contains weekly learning data.
+      // -------------------------------------------------------
+
+      const existingRoadmap =
+        roadmapData &&
+        Array.isArray(
+          roadmapData.roadmap,
+        )
+          ? roadmapData.roadmap
+          : []
+
+      const roadmapNeedsGeneration =
+        !roadmapResponse.ok ||
+        existingRoadmap.length === 0
+
+      // -------------------------------------------------------
+      // STEP 3:
+      // AUTOMATIC ROADMAP GENERATION
+      //
+      // The user does NOT need Swagger anymore.
+      // -------------------------------------------------------
+
+      if (roadmapNeedsGeneration) {
+        console.log(
+          'No usable roadmap found. Generating automatically...',
+        )
+
+        // -----------------------------------------------------
+        // Get latest Job Description
+        // -----------------------------------------------------
+
+        const jdResponse =
+          await fetch(
+            'http://127.0.0.1:8001/api/job-descriptions',
+            {
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            },
+          )
+
+        if (
+          jdResponse.status === 401
+        ) {
+          localStorage.removeItem(
+            'access_token',
+          )
+
+          navigate('/login')
+          return
+        }
+
+        if (!jdResponse.ok) {
+          const errorData =
+            await jdResponse
+              .json()
+              .catch(() => null)
+
+          throw new Error(
+            errorData?.detail ||
+              `Unable to load job description. Server returned ${jdResponse.status}.`,
+          )
+        }
+
+        const jobDescriptions =
+          await jdResponse.json()
+
+        if (
+          !Array.isArray(
+            jobDescriptions,
+          ) ||
+          jobDescriptions.length === 0
+        ) {
+          throw new Error(
+            'Please analyze a job description before opening your Career Roadmap.',
+          )
+        }
+
+        // Backend returns newest first.
+        const latestJobDescription =
+          jobDescriptions[0]
+
+        // -----------------------------------------------------
+        // Use saved duration when available.
+        // Default = 4 weeks.
+        // -----------------------------------------------------
+
+        const savedDuration =
+          Number(
+            roadmapData?.duration_weeks,
+          )
+
+        const durationWeeks =
+          savedDuration >= 1 &&
+          savedDuration <= 12
+            ? savedDuration
+            : 4
+
+        // -----------------------------------------------------
+        // Generate roadmap.
+        //
+        // missing_skills is intentionally empty because the
+        // backend calculates the official skill gaps from:
+        //
+        // Resume + Job Description
+        // -----------------------------------------------------
+
+        const generateResponse =
+          await fetch(
+            'http://127.0.0.1:8001/api/career-roadmap/generate',
+            {
+              method: 'POST',
+
+              headers: {
+                'Content-Type':
+                  'application/json',
+
+                Authorization:
+                  `Bearer ${token}`,
+              },
+
+              body: JSON.stringify({
+                target_role:
+                  latestJobDescription.title ||
+                  'Career Goal',
+
+                company_name:
+                  latestJobDescription.company_name ||
+                  null,
+
+                duration_weeks:
+                  durationWeeks,
+
+                missing_skills: [],
+              }),
+            },
+          )
+
+        if (
+          generateResponse.status === 401
+        ) {
+          localStorage.removeItem(
+            'access_token',
+          )
+
+          navigate('/login')
+          return
+        }
+
+        if (!generateResponse.ok) {
+          const errorData =
+            await generateResponse
+              .json()
+              .catch(() => null)
+
+          throw new Error(
+            errorData?.detail ||
+              `Unable to generate roadmap. Server returned ${generateResponse.status}.`,
+          )
+        }
+
+        roadmapData =
+          await generateResponse.json()
+
+        console.log(
+          'Automatically generated Career Roadmap:',
+          roadmapData,
+        )
+      }
+
+      // -------------------------------------------------------
+      // STEP 4:
+      // Extract weekly roadmap.
+      // -------------------------------------------------------
 
       const roadmapWeeks: RoadmapWeek[] =
-        Array.isArray(data.roadmap)
-          ? data.roadmap
-          : Array.isArray(data.roadmap_data)
-            ? data.roadmap_data
+        Array.isArray(
+          roadmapData?.roadmap,
+        )
+          ? roadmapData.roadmap
+          : Array.isArray(
+                roadmapData?.roadmap_data,
+              )
+            ? roadmapData.roadmap_data
             : []
 
-      // -----------------------------------------------------
-      // MISSING SKILLS
-      // -----------------------------------------------------
+      // -------------------------------------------------------
+      // Safety check
+      // -------------------------------------------------------
+
+      if (
+        roadmapWeeks.length === 0
+      ) {
+        throw new Error(
+          'The roadmap could not be generated. Please analyze a job description and try again.',
+        )
+      }
+
+      // -------------------------------------------------------
+      // STEP 5:
+      // Missing skills.
+      // -------------------------------------------------------
 
       const missingSkills: string[] =
-        Array.isArray(data.missing_skills) &&
-        data.missing_skills.length > 0
-          ? data.missing_skills
+        Array.isArray(
+          roadmapData?.missing_skills,
+        ) &&
+        roadmapData.missing_skills.length > 0
+          ? roadmapData.missing_skills
           : Array.from(
               new Set(
-                roadmapWeeks.flatMap((week) =>
-                  Array.isArray(week.skills)
-                    ? week.skills
-                    : [],
+                roadmapWeeks.flatMap(
+                  (week) =>
+                    Array.isArray(
+                      week.skills,
+                    )
+                      ? week.skills
+                      : [],
                 ),
               ),
             )
 
-      // -----------------------------------------------------
-      // IMPORTANT
-      //
-      // Completed tasks now come from PostgreSQL.
-      // No localStorage is used.
-      // -----------------------------------------------------
+      // -------------------------------------------------------
+      // STEP 6:
+      // Completed tasks from PostgreSQL.
+      // -------------------------------------------------------
 
       const backendCompletedTasks =
-        data.completed_tasks &&
-        typeof data.completed_tasks === 'object'
-          ? data.completed_tasks
+        roadmapData?.completed_tasks &&
+        typeof roadmapData.completed_tasks ===
+          'object'
+          ? roadmapData.completed_tasks
           : {}
 
       setCompletedTasks(
         backendCompletedTasks,
       )
 
-      // -----------------------------------------------------
-      // SET ROADMAP
-      // -----------------------------------------------------
+      // -------------------------------------------------------
+      // STEP 7:
+      // Save roadmap into React state.
+      // -------------------------------------------------------
 
       setRoadmap({
-        id: data.id ?? 0,
+        id:
+          roadmapData?.id ??
+          0,
 
         target_role:
-          data.target_role ??
+          roadmapData?.target_role ??
           'Career Goal',
 
         company_name:
-          data.company_name ??
+          roadmapData?.company_name ??
           null,
 
         duration_weeks:
-          data.duration_weeks ??
+          roadmapData?.duration_weeks ??
           4,
 
         overall_progress:
-          data.overall_progress ??
+          roadmapData?.overall_progress ??
           0,
 
         status:
-          data.status ??
+          roadmapData?.status ??
           'active',
 
         missing_skills:
@@ -184,16 +401,17 @@ function CareerRoadmap() {
         completed_tasks:
           backendCompletedTasks,
       })
+
     } catch (err) {
       console.error(
-        'Career Roadmap loading error:',
+        'Career Roadmap loading/generation error:',
         err,
       )
 
       setError(
         err instanceof Error
           ? err.message
-          : 'Unable to load career roadmap.',
+          : 'Unable to load or generate career roadmap.',
       )
     } finally {
       setLoading(false)
@@ -201,64 +419,70 @@ function CareerRoadmap() {
   }
 
   // =========================================================
-  // TOGGLE ROADMAP TASK
+  // TOGGLE TASK
   // =========================================================
 
   async function toggleTask(
     weekNumber: number,
     taskIndex: number,
   ) {
-    const token = localStorage.getItem(
-      'access_token',
-    )
+    const token =
+      localStorage.getItem(
+        'access_token',
+      )
 
     if (!token) {
       navigate('/login')
       return
     }
 
-    const key = `${weekNumber}-${taskIndex}`
+    const key =
+      `${weekNumber}-${taskIndex}`
 
     const newCompleted =
-      !Boolean(completedTasks[key])
+      !Boolean(
+        completedTasks[key],
+      )
 
     setSavingTask(key)
     setError('')
 
     try {
-      const response = await fetch(
-        'http://127.0.0.1:8001/api/career-roadmap/tasks',
-        {
-          method: 'PUT',
+      const response =
+        await fetch(
+          'http://127.0.0.1:8001/api/career-roadmap/tasks',
+          {
+            method: 'PUT',
 
-          headers: {
-            'Content-Type':
-              'application/json',
+            headers: {
+              'Content-Type':
+                'application/json',
 
-            Authorization:
-              `Bearer ${token}`,
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              week: weekNumber,
+
+              task_index:
+                taskIndex,
+
+              completed:
+                newCompleted,
+            }),
           },
-
-          body: JSON.stringify({
-            week: weekNumber,
-
-            task_index:
-              taskIndex,
-
-            completed:
-              newCompleted,
-          }),
-        },
-      )
+        )
 
       if (!response.ok) {
-        if (response.status === 401) {
+        if (
+          response.status === 401
+        ) {
           localStorage.removeItem(
             'access_token',
           )
 
           navigate('/login')
-
           return
         }
 
@@ -281,9 +505,9 @@ function CareerRoadmap() {
         data,
       )
 
-      // -----------------------------------------------------
-      // Update completed task state
-      // -----------------------------------------------------
+      // -------------------------------------------------------
+      // Update completed task state immediately.
+      // -------------------------------------------------------
 
       setCompletedTasks(
         (previous) => ({
@@ -294,9 +518,9 @@ function CareerRoadmap() {
         }),
       )
 
-      // -----------------------------------------------------
-      // Update roadmap progress from backend
-      // -----------------------------------------------------
+      // -------------------------------------------------------
+      // Update backend progress.
+      // -------------------------------------------------------
 
       setRoadmap(
         (previous) => {
@@ -326,6 +550,7 @@ function CareerRoadmap() {
           }
         },
       )
+
     } catch (err) {
       console.error(
         'Career Roadmap task update failed:',
@@ -346,77 +571,82 @@ function CareerRoadmap() {
   // WEEKS
   // =========================================================
 
-  const weeks = useMemo(() => {
-    if (!roadmap) {
-      return []
-    }
+  const weeks =
+    useMemo(() => {
+      if (!roadmap) {
+        return []
+      }
 
-    return Array.isArray(
-      roadmap.roadmap,
-    )
-      ? roadmap.roadmap
-      : []
-  }, [roadmap])
+      return Array.isArray(
+        roadmap.roadmap,
+      )
+        ? roadmap.roadmap
+        : []
+    }, [roadmap])
 
   // =========================================================
   // OVERALL PROGRESS
-  //
-  // Calculated locally for instant UI response.
-  // Backend remains the source of truth.
   // =========================================================
 
-  const progress = useMemo(() => {
-    if (
-      !roadmap ||
-      weeks.length === 0
-    ) {
-      return (
-        roadmap?.overall_progress ??
-        0
-      )
-    }
+  const progress =
+    useMemo(() => {
+      if (
+        !roadmap ||
+        weeks.length === 0
+      ) {
+        return (
+          roadmap?.overall_progress ??
+          0
+        )
+      }
 
-    let totalTasks = 0
-    let completed = 0
+      let totalTasks = 0
+      let completed = 0
 
-    weeks.forEach((week) => {
-      const tasks =
-        Array.isArray(week.tasks)
-          ? week.tasks
-          : []
+      weeks.forEach(
+        (week) => {
+          const tasks =
+            Array.isArray(
+              week.tasks,
+            )
+              ? week.tasks
+              : []
 
-      totalTasks +=
-        tasks.length
+          totalTasks +=
+            tasks.length
 
-      tasks.forEach(
-        (_, index) => {
-          if (
-            completedTasks[
-              `${week.week}-${index}`
-            ]
-          ) {
-            completed++
-          }
+          tasks.forEach(
+            (_, index) => {
+              if (
+                completedTasks[
+                  `${week.week}-${index}`
+                ]
+              ) {
+                completed++
+              }
+            },
+          )
         },
       )
-    })
 
-    if (totalTasks === 0) {
-      return (
-        roadmap.overall_progress
+      if (
+        totalTasks === 0
+      ) {
+        return (
+          roadmap.overall_progress
+        )
+      }
+
+      return Math.round(
+        (completed /
+          totalTasks) *
+          100,
       )
-    }
-
-    return Math.round(
-      (completed /
-        totalTasks) *
-        100,
-    )
-  }, [
-    roadmap,
-    weeks,
-    completedTasks,
-  ])
+    }, [
+      roadmap,
+      weeks,
+      completedTasks,
+    ])
 
   // =========================================================
   // WEEK PROGRESS
@@ -426,11 +656,15 @@ function CareerRoadmap() {
     week: RoadmapWeek,
   ) {
     const tasks =
-      Array.isArray(week.tasks)
+      Array.isArray(
+        week.tasks,
+      )
         ? week.tasks
         : []
 
-    if (tasks.length === 0) {
+    if (
+      tasks.length === 0
+    ) {
       return 0
     }
 
@@ -459,11 +693,15 @@ function CareerRoadmap() {
     const value =
       priority?.toLowerCase()
 
-    if (value === 'high') {
+    if (
+      value === 'high'
+    ) {
       return 'border-red-500/20 bg-red-500/10 text-red-300'
     }
 
-    if (value === 'medium') {
+    if (
+      value === 'medium'
+    ) {
       return 'border-yellow-500/20 bg-yellow-500/10 text-yellow-300'
     }
 
@@ -477,9 +715,7 @@ function CareerRoadmap() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 text-white">
-
         <div className="text-center">
-
           <div className="mx-auto mb-5 h-12 w-12 animate-spin rounded-full border-4 border-slate-700 border-t-cyan-400" />
 
           <h2 className="text-xl font-bold">
@@ -487,11 +723,9 @@ function CareerRoadmap() {
           </h2>
 
           <p className="mt-2 text-sm text-slate-400">
-            Loading your personalized preparation plan.
+            Creating your personalized preparation plan.
           </p>
-
         </div>
-
       </div>
     )
   }
@@ -503,7 +737,6 @@ function CareerRoadmap() {
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-950 px-6 text-white">
-
         <div className="w-full max-w-lg rounded-3xl border border-slate-800 bg-slate-900 p-8 text-center shadow-2xl">
 
           <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10 text-3xl">
@@ -529,9 +762,7 @@ function CareerRoadmap() {
 
             <button
               onClick={() =>
-                navigate(
-                  '/dashboard',
-                )
+                navigate('/dashboard')
               }
               className="rounded-xl border border-slate-700 px-5 py-3 font-semibold text-slate-300 transition hover:bg-slate-800"
             >
@@ -539,9 +770,7 @@ function CareerRoadmap() {
             </button>
 
           </div>
-
         </div>
-
       </div>
     )
   }
@@ -565,22 +794,19 @@ function CareerRoadmap() {
           </h2>
 
           <p className="mt-2 text-slate-400">
-            Generate a roadmap from your target job first.
+            Analyze a target job to build your personalized roadmap.
           </p>
 
           <button
             onClick={() =>
-              navigate(
-                '/dashboard',
-              )
+              navigate('/dashboard')
             }
-            className="mt-6 rounded-xl bg-cyan-500 px-6 py-3 font-semibold text-slate-950"
+            className="mt-6 rounded-xl bg-cyan-500 px-6 py-3 font-semibold text-slate-950 transition hover:bg-cyan-400"
           >
             Back to Dashboard
           </button>
 
         </div>
-
       </div>
     )
   }
@@ -592,9 +818,9 @@ function CareerRoadmap() {
   return (
     <div className="min-h-screen bg-slate-950 text-white">
 
-      {/* =================================================
+      {/* =====================================================
           HEADER
-      ================================================= */}
+      ===================================================== */}
 
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur">
 
@@ -604,9 +830,7 @@ function CareerRoadmap() {
 
             <button
               onClick={() =>
-                navigate(
-                  '/dashboard',
-                )
+                navigate('/dashboard')
               }
               className="rounded-xl border border-slate-700 px-3 py-2 text-slate-300 transition hover:bg-slate-800"
             >
@@ -638,108 +862,101 @@ function CareerRoadmap() {
 
       </header>
 
+      {/* =====================================================
+          MAIN
+      ===================================================== */}
+
       <main className="mx-auto max-w-7xl px-6 py-8">
 
-        {/* =================================================
+        {/* ===================================================
             HERO
-        ================================================= */}
+        =================================================== */}
 
-        <section className="relative overflow-hidden rounded-3xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/[0.10] via-slate-900 to-violet-500/[0.10] p-8 shadow-2xl">
+        <section className="relative overflow-hidden rounded-3xl border border-cyan-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-cyan-950/50 p-8 shadow-2xl">
 
-          <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
+          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl" />
 
-          <div className="pointer-events-none absolute -bottom-24 -left-24 h-72 w-72 rounded-full bg-violet-500/10 blur-3xl" />
+          <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
 
-          <div className="relative grid gap-8 lg:grid-cols-[1fr_260px] lg:items-center">
+            <div className="flex-1">
 
-            <div>
-
-              <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-cyan-300">
+              <div className="mb-5 inline-flex items-center rounded-full border border-cyan-500/30 bg-cyan-500/10 px-4 py-2 text-xs font-bold uppercase tracking-wide text-cyan-300">
                 🚀 Personalized Career Plan
               </div>
 
-              <h2 className="text-3xl font-black md:text-4xl">
+              <h2 className="text-4xl font-black tracking-tight md:text-5xl">
                 {roadmap.target_role}
               </h2>
 
               {roadmap.company_name && (
                 <p className="mt-3 text-lg text-slate-400">
-
                   🎯 Target Company:{' '}
-
-                  <span className="font-semibold text-white">
+                  <span className="font-bold text-white">
                     {roadmap.company_name}
                   </span>
-
                 </p>
               )}
 
-              <div className="mt-6 flex flex-wrap gap-3">
+              <div className="mt-7 flex flex-wrap gap-3">
 
-                <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-5 py-3">
-
+                <div className="rounded-xl border border-slate-700 bg-slate-950/60 px-5 py-3">
                   <p className="text-xs text-slate-500">
                     Duration
                   </p>
-
                   <p className="mt-1 font-bold">
-                    {roadmap.duration_weeks}{' '}
-                    Weeks
+                    {roadmap.duration_weeks} Weeks
                   </p>
-
                 </div>
 
-                <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-5 py-3">
-
+                <div className="rounded-xl border border-slate-700 bg-slate-950/60 px-5 py-3">
                   <p className="text-xs text-slate-500">
                     Status
                   </p>
-
                   <p className="mt-1 font-bold capitalize">
                     {roadmap.status}
                   </p>
-
                 </div>
 
-                <div className="rounded-xl border border-slate-700 bg-slate-900/60 px-5 py-3">
-
+                <div className="rounded-xl border border-slate-700 bg-slate-950/60 px-5 py-3">
                   <p className="text-xs text-slate-500">
                     Skill Gaps
                   </p>
-
                   <p className="mt-1 font-bold text-red-300">
                     {roadmap.missing_skills.length}
                   </p>
-
                 </div>
 
               </div>
 
             </div>
 
-            {/* PROGRESS */}
+            {/* =================================================
+                PROGRESS CIRCLE
+            ================================================= */}
 
-            <div className="flex justify-center">
+            <div className="flex justify-center lg:pr-8">
 
-              <div className="relative flex h-48 w-48 items-center justify-center rounded-full">
+              <div className="relative flex h-40 w-40 items-center justify-center rounded-full border-[12px] border-slate-800">
 
                 <div
-                  className="absolute inset-0 rounded-full"
+                  className="absolute inset-[-12px] rounded-full"
                   style={{
-                    background:
-                      `conic-gradient(#22d3ee ${progress * 3.6}deg, #1e293b 0deg)`,
+                    background: `conic-gradient(#22d3ee ${progress}%, transparent ${progress}% 100%)`,
+                    mask: 'radial-gradient(farthest-side, transparent calc(100% - 12px), #000 calc(100% - 11px))',
+                    WebkitMask:
+                      'radial-gradient(farthest-side, transparent calc(100% - 12px), #000 calc(100% - 11px))',
                   }}
                 />
 
-                <div className="relative flex h-40 w-40 flex-col items-center justify-center rounded-full bg-slate-950">
+                <div className="text-center">
 
-                  <span className="text-4xl font-black text-cyan-300">
+                  <div className="text-3xl font-black text-cyan-300">
                     {progress}%
-                  </span>
+                  </div>
 
-                  <span className="mt-1 text-xs uppercase tracking-wider text-slate-500">
+                  <div className="text-xs uppercase tracking-wide text-slate-500">
                     Complete
-                  </span>
+                  </div>
 
                 </div>
 
@@ -751,17 +968,17 @@ function CareerRoadmap() {
 
         </section>
 
-        {/* =================================================
-            SKILL GAPS
-        ================================================= */}
+        {/* ===================================================
+            SKILLS TO STRENGTHEN
+        =================================================== */}
 
-        <section className="mt-8 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+        <section className="mt-7 rounded-2xl border border-slate-800 bg-slate-900 p-6">
 
-          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-center justify-between">
 
             <div>
 
-              <h3 className="text-xl font-bold">
+              <h3 className="text-lg font-bold">
                 🎯 Skills to Strengthen
               </h3>
 
@@ -771,15 +988,13 @@ function CareerRoadmap() {
 
             </div>
 
-            <span className="w-fit rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300">
-              {roadmap.missing_skills.length}{' '}
-              Gaps
-            </span>
+            <div className="rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300">
+              {roadmap.missing_skills.length} Gaps
+            </div>
 
           </div>
 
-          {roadmap.missing_skills.length >
-          0 ? (
+          {roadmap.missing_skills.length > 0 ? (
 
             <div className="mt-5 flex flex-wrap gap-3">
 
@@ -798,21 +1013,21 @@ function CareerRoadmap() {
 
           ) : (
 
-            <p className="mt-5 rounded-xl bg-green-500/10 p-4 text-sm text-green-300">
+            <div className="mt-5 rounded-xl border border-green-500/10 bg-green-500/10 p-4 text-sm text-green-300">
               🎉 No major skill gaps detected!
-            </p>
+            </div>
 
           )}
 
         </section>
 
-        {/* =================================================
+        {/* ===================================================
             JOURNEY
-        ================================================= */}
+        =================================================== */}
 
         <section className="mt-10">
 
-          <div className="mb-7">
+          <div className="mb-6">
 
             <p className="text-xs font-bold uppercase tracking-widest text-cyan-400">
               Your Journey
@@ -830,13 +1045,13 @@ function CareerRoadmap() {
 
           {weeks.length === 0 ? (
 
-            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-8 text-center">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900 p-12 text-center">
 
               <div className="text-5xl">
                 📭
               </div>
 
-              <h3 className="mt-4 text-xl font-bold">
+              <h3 className="mt-5 text-xl font-bold">
                 Roadmap details not available
               </h3>
 
@@ -844,19 +1059,21 @@ function CareerRoadmap() {
                 The roadmap exists, but no weekly learning data was returned.
               </p>
 
+              <button
+                onClick={fetchRoadmap}
+                className="mt-6 rounded-xl bg-cyan-500 px-5 py-3 font-bold text-slate-950"
+              >
+                Generate Again
+              </button>
+
             </div>
 
           ) : (
 
-            <div className="space-y-8">
+            <div className="space-y-6">
 
               {weeks.map(
-                (week, index) => {
-
-                  const currentProgress =
-                    getWeekProgress(
-                      week,
-                    )
+                (week) => {
 
                   const tasks =
                     Array.isArray(
@@ -865,279 +1082,294 @@ function CareerRoadmap() {
                       ? week.tasks
                       : []
 
-                  const skills =
-                    Array.isArray(
-                      week.skills,
+                  const weekProgress =
+                    getWeekProgress(
+                      week,
                     )
-                      ? week.skills
-                      : []
 
                   return (
-
-                    <div
-                      key={`${week.week}-${index}`}
-                      className="relative"
+                    <article
+                      key={week.week}
+                      className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-xl"
                     >
 
-                      {/* TIMELINE */}
+                      {/* =========================================
+                          WEEK HEADER
+                      ========================================= */}
 
-                      {index <
-                        weeks.length -
-                          1 && (
+                      <div className="border-b border-slate-800 p-6">
 
-                        <div className="absolute left-7 top-16 hidden h-[calc(100%+2rem)] w-px bg-gradient-to-b from-cyan-500/50 to-slate-800 md:block" />
+                        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
 
-                      )}
+                          <div className="flex gap-4">
 
-                      <article className="relative rounded-2xl border border-slate-800 bg-slate-900 shadow-xl transition duration-300 hover:border-cyan-500/30">
-
-                        {/* WEEK HEADER */}
-
-                        <div className="border-b border-slate-800 p-6">
-
-                          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-
-                            <div className="flex items-start gap-4">
-
-                              <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-cyan-500/10 text-sm font-black text-cyan-300">
-                                W{week.week}
-                              </div>
-
-                              <div>
-
-                                <div className="mb-2 flex flex-wrap items-center gap-2">
-
-                                  <span
-                                    className={`rounded-full border px-3 py-1 text-xs font-bold ${getPriorityStyle(
-                                      week.priority,
-                                    )}`}
-                                  >
-                                    {week.priority ||
-                                      'Medium'}{' '}
-                                    Priority
-                                  </span>
-
-                                </div>
-
-                                <h4 className="text-xl font-bold">
-                                  {week.title ||
-                                    `Week ${week.week}`}
-                                </h4>
-
-                                <p className="mt-1 text-sm text-slate-500">
-                                  Focus:{' '}
-                                  {week.focus ||
-                                    'Career Development'}
-                                </p>
-
-                              </div>
-
+                            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-cyan-500/10 text-lg font-black text-cyan-300">
+                              {week.week}
                             </div>
 
-                            {/* WEEK PROGRESS */}
+                            <div>
 
-                            <div className="w-full lg:w-56">
+                              <p className="text-xs font-bold uppercase tracking-wide text-cyan-400">
+                                Week {week.week}
+                              </p>
 
-                              <div className="mb-2 flex justify-between text-xs">
+                              <h4 className="mt-1 text-xl font-black">
+                                {week.title}
+                              </h4>
 
-                                <span className="text-slate-500">
-                                  Week Progress
+                              <p className="mt-2 text-sm text-slate-400">
+                                Focus:{' '}
+                                <span className="font-semibold text-slate-300">
+                                  {week.focus}
                                 </span>
-
-                                <span className="font-bold text-cyan-300">
-                                  {currentProgress}%
-                                </span>
-
-                              </div>
-
-                              <div className="h-2 overflow-hidden rounded-full bg-slate-800">
-
-                                <div
-                                  className="h-full rounded-full bg-cyan-400 transition-all duration-500"
-                                  style={{
-                                    width:
-                                      `${currentProgress}%`,
-                                  }}
-                                />
-
-                              </div>
-
-                            </div>
-
-                          </div>
-
-                        </div>
-
-                        {/* SKILLS + PROJECT */}
-
-                        <div className="grid gap-6 p-6 lg:grid-cols-2">
-
-                          {/* SKILLS */}
-
-                          <div>
-
-                            <h5 className="mb-3 font-bold">
-                              🧩 Skills
-                            </h5>
-
-                            <div className="flex flex-wrap gap-2">
-
-                              {skills.length >
-                              0 ? (
-
-                                skills.map(
-                                  (
-                                    skill,
-                                  ) => (
-
-                                    <span
-                                      key={
-                                        skill
-                                      }
-                                      className="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-3 py-2 text-xs font-semibold text-indigo-300"
-                                    >
-                                      {skill}
-                                    </span>
-
-                                  ),
-                                )
-
-                              ) : (
-
-                                <span className="text-sm text-slate-500">
-                                  No skills listed.
-                                </span>
-
-                              )}
-
-                            </div>
-
-                          </div>
-
-                          {/* PROJECT */}
-
-                          <div>
-
-                            <h5 className="mb-3 font-bold">
-                              🛠️ Mini Project
-                            </h5>
-
-                            <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
-
-                              <p className="text-sm leading-6 text-slate-400">
-                                {week.project ||
-                                  'Complete a practical project related to this week.'}
                               </p>
 
                             </div>
 
                           </div>
 
+                          <div className="flex items-center gap-3">
+
+                            <span
+                              className={`rounded-full border px-3 py-1 text-xs font-bold capitalize ${getPriorityStyle(
+                                week.priority,
+                              )}`}
+                            >
+                              {week.priority} priority
+                            </span>
+
+                            <span className="rounded-full bg-slate-800 px-3 py-1 text-xs font-bold text-slate-400">
+                              {weekProgress}% complete
+                            </span>
+
+                          </div>
+
                         </div>
 
-                        {/* TASKS */}
+                        {/* WEEK PROGRESS */}
 
-                        <div className="border-t border-slate-800 p-6">
+                        <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-800">
 
-                          <h5 className="mb-4 font-bold">
-                            ✅ Learning Tasks
-                          </h5>
+                          <div
+                            className="h-full rounded-full bg-cyan-400 transition-all duration-500"
+                            style={{
+                              width: `${weekProgress}%`,
+                            }}
+                          />
 
-                          {tasks.length >
-                          0 ? (
+                        </div>
 
-                            <div className="grid gap-3 md:grid-cols-2">
+                        {/* SKILLS */}
 
-                              {tasks.map(
-                                (
-                                  task,
-                                  taskIndex,
-                                ) => {
+                        {week.skills &&
+                          week.skills.length > 0 && (
 
-                                  const key =
-                                    `${week.week}-${taskIndex}`
+                            <div className="mt-5">
 
-                                  const completed =
-                                    !!completedTasks[
-                                      key
-                                    ]
+                              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                                Skills
+                              </p>
 
-                                  const isSaving =
-                                    savingTask ===
-                                    key
+                              <div className="flex flex-wrap gap-2">
 
-                                  return (
-
-                                    <label
-                                      key={
-                                        key
-                                      }
-                                      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
-                                        completed
-                                          ? 'border-green-500/20 bg-green-500/10'
-                                          : 'border-slate-800 bg-slate-950 hover:border-cyan-500/30'
-                                      } ${
-                                        isSaving
-                                          ? 'opacity-60'
-                                          : ''
-                                      }`}
+                                {week.skills.map(
+                                  (skill) => (
+                                    <span
+                                      key={skill}
+                                      className="rounded-lg bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300"
                                     >
+                                      {skill}
+                                    </span>
+                                  ),
+                                )}
 
-                                      <input
-                                        type="checkbox"
-                                        checked={
-                                          completed
-                                        }
-                                        disabled={
-                                          isSaving
-                                        }
-                                        onChange={() =>
-                                          toggleTask(
-                                            week.week,
-                                            taskIndex,
-                                          )
-                                        }
-                                        className="mt-1 h-4 w-4 accent-cyan-400"
-                                      />
-
-                                      <span
-                                        className={`text-sm leading-5 ${
-                                          completed
-                                            ? 'text-green-300 line-through'
-                                            : 'text-slate-400'
-                                        }`}
-                                      >
-                                        {task}
-                                      </span>
-
-                                      {isSaving && (
-                                        <span className="ml-auto text-xs text-cyan-300">
-                                          Saving...
-                                        </span>
-                                      )}
-
-                                    </label>
-
-                                  )
-                                },
-                              )}
+                              </div>
 
                             </div>
 
-                          ) : (
+                          )}
 
-                            <p className="text-sm text-slate-500">
-                              No learning tasks available for this week.
+                      </div>
+
+                      {/* =========================================
+                          TOPICS
+                      ========================================= */}
+
+                      <div className="border-b border-slate-800 p-6">
+
+                        <h5 className="mb-4 font-bold">
+                          📖 Topics to Learn
+                        </h5>
+
+                        {tasks.length > 0 ? (
+
+                          <div className="flex flex-wrap gap-2">
+
+                            {tasks.map(
+                              (
+                                task,
+                                index,
+                              ) => (
+                                <span
+                                  key={`${week.week}-topic-${index}`}
+                                  className="rounded-lg border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-400"
+                                >
+                                  {task}
+                                </span>
+                              ),
+                            )}
+
+                          </div>
+
+                        ) : (
+
+                          <p className="text-sm text-slate-500">
+                            No topics available.
+                          </p>
+
+                        )}
+
+                      </div>
+
+                      {/* =========================================
+                          PROJECT + MILESTONE
+                      ========================================= */}
+
+                      <div className="grid gap-4 border-b border-slate-800 p-6 md:grid-cols-2">
+
+                        <div>
+
+                          <h5 className="mb-3 font-bold text-cyan-300">
+                            🛠️ Mini Project
+                          </h5>
+
+                          <div className="rounded-xl border border-slate-800 bg-slate-950 p-4">
+
+                            <p className="text-sm leading-6 text-slate-400">
+                              {week.project ||
+                                'Complete a practical project related to this week.'}
                             </p>
 
-                          )}
+                          </div>
 
                         </div>
 
-                      </article>
+                        <div>
 
-                    </div>
+                          <h5 className="mb-3 font-bold text-green-300">
+                            🏆 Milestone
+                          </h5>
 
+                          <div className="rounded-xl border border-green-500/10 bg-green-500/5 p-4">
+
+                            <p className="text-sm leading-6 text-slate-400">
+                              {week.milestone ||
+                                'Complete the learning objectives for this week.'}
+                            </p>
+
+                          </div>
+
+                        </div>
+
+                      </div>
+
+                      {/* =========================================
+                          LEARNING TASKS
+                      ========================================= */}
+
+                      <div className="p-6">
+
+                        <h5 className="mb-4 font-bold">
+                          ✅ Learning Tasks
+                        </h5>
+
+                        {tasks.length > 0 ? (
+
+                          <div className="grid gap-3 md:grid-cols-2">
+
+                            {tasks.map(
+                              (
+                                task,
+                                taskIndex,
+                              ) => {
+
+                                const key =
+                                  `${week.week}-${taskIndex}`
+
+                                const completed =
+                                  !!completedTasks[
+                                    key
+                                  ]
+
+                                const isSaving =
+                                  savingTask ===
+                                  key
+
+                                return (
+                                  <label
+                                    key={key}
+                                    className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
+                                      completed
+                                        ? 'border-green-500/20 bg-green-500/10'
+                                        : 'border-slate-800 bg-slate-950 hover:border-cyan-500/30'
+                                    } ${
+                                      isSaving
+                                        ? 'opacity-60'
+                                        : ''
+                                    }`}
+                                  >
+
+                                    <input
+                                      type="checkbox"
+                                      checked={
+                                        completed
+                                      }
+                                      disabled={
+                                        isSaving
+                                      }
+                                      onChange={() =>
+                                        toggleTask(
+                                          week.week,
+                                          taskIndex,
+                                        )
+                                      }
+                                      className="mt-1 h-4 w-4 accent-cyan-400"
+                                    />
+
+                                    <span
+                                      className={`text-sm leading-5 ${
+                                        completed
+                                          ? 'text-green-300 line-through'
+                                          : 'text-slate-400'
+                                      }`}
+                                    >
+                                      {task}
+                                    </span>
+
+                                    {isSaving && (
+                                      <span className="ml-auto text-xs text-cyan-300">
+                                        Saving...
+                                      </span>
+                                    )}
+
+                                  </label>
+                                )
+                              },
+                            )}
+
+                          </div>
+
+                        ) : (
+
+                          <p className="text-sm text-slate-500">
+                            No learning tasks available for this week.
+                          </p>
+
+                        )}
+
+                      </div>
+
+                    </article>
                   )
                 },
               )}
@@ -1148,9 +1380,9 @@ function CareerRoadmap() {
 
         </section>
 
-        {/* =================================================
-            BOTTOM ACTIONS
-        ================================================= */}
+        {/* ===================================================
+            CONTINUE PREPARATION
+        =================================================== */}
 
         <section className="mt-10 rounded-2xl border border-slate-800 bg-slate-900 p-6">
 
@@ -1172,9 +1404,7 @@ function CareerRoadmap() {
 
               <button
                 onClick={() =>
-                  navigate(
-                    '/interview',
-                  )
+                  navigate('/interview')
                 }
                 className="rounded-xl bg-purple-600 px-5 py-3 text-sm font-bold transition hover:bg-purple-500"
               >
@@ -1183,9 +1413,7 @@ function CareerRoadmap() {
 
               <button
                 onClick={() =>
-                  navigate(
-                    '/coding',
-                  )
+                  navigate('/coding')
                 }
                 className="rounded-xl bg-green-600 px-5 py-3 text-sm font-bold transition hover:bg-green-500"
               >
@@ -1194,9 +1422,7 @@ function CareerRoadmap() {
 
               <button
                 onClick={() =>
-                  navigate(
-                    '/readiness',
-                  )
+                  navigate('/readiness')
                 }
                 className="rounded-xl bg-yellow-500 px-5 py-3 text-sm font-bold text-slate-950 transition hover:bg-yellow-400"
               >

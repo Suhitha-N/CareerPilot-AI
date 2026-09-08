@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from backend.app.core.database import get_db
-from backend.app.core.security import get_current_user
+from backend.app.core.dependencies import get_current_user
 from backend.app.models.daily_plan import DailyPlanTask
 from backend.app.models.user import User
 

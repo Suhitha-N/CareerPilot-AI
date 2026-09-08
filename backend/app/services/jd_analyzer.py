@@ -2,7 +2,12 @@ import re
 from typing import Any
 
 
+# ---------------------------------------------------------
+# Known technical and professional skills
+# ---------------------------------------------------------
+
 KNOWN_SKILLS = [
+    # Programming
     "Python",
     "Java",
     "JavaScript",
@@ -10,30 +15,51 @@ KNOWN_SKILLS = [
     "C",
     "C++",
     "C#",
+
+    # Data
     "SQL",
     "PostgreSQL",
     "MySQL",
     "MongoDB",
     "SQLite",
+    "Excel",
+    "Pandas",
+    "NumPy",
+    "Matplotlib",
+    "Seaborn",
+    "Power BI",
+    "Tableau",
+    "Statistics",
+    "Data Analysis",
+    "Data Analytics",
+    "Data Visualization",
+    "Data Mining",
+    "Data Science",
+    "Machine Learning",
+    "Deep Learning",
+
+    # Backend
     "FastAPI",
     "Flask",
     "Django",
-    "React",
     "Node.js",
-    "HTML",
-    "CSS",
-    "Tailwind CSS",
     "REST APIs",
     "REST API",
     "SQLAlchemy",
+
+    # Frontend
+    "React",
+    "HTML",
+    "CSS",
+    "Tailwind CSS",
+
+    # NLP / AI
     "NLTK",
     "spaCy",
     "NLP",
-    "Machine Learning",
-    "Deep Learning",
-    "Data Science",
-    "Data Analytics",
-    "Data Mining",
+    "Natural Language Processing",
+
+    # Development / DevOps
     "Git",
     "GitHub",
     "Docker",
@@ -42,16 +68,33 @@ KNOWN_SKILLS = [
     "GCP",
     "Linux",
     "Kubernetes",
+
+    # Security
     "JWT",
     "RBAC",
+
+    # Computer Science
     "OOP",
     "Object-Oriented Programming",
     "Data Structures",
     "Algorithms",
     "DBMS",
     "Computer Networks",
+
+    # Professional / analytical skills
+    "Dashboard Development",
+    "Data Interpretation",
+    "Trend Analysis",
+    "Problem Solving",
+    "Communication",
+    "Business Intelligence",
+    "Reporting",
 ]
 
+
+# ---------------------------------------------------------
+# Skill normalization
+# ---------------------------------------------------------
 
 def normalize_skill(skill: str) -> str:
     aliases = {
@@ -71,6 +114,16 @@ def normalize_skill(skill: str) -> str:
         "jwt authentication": "JWT",
         "role based access control": "RBAC",
         "role-based access control": "RBAC",
+
+        "data analysis": "Data Analysis",
+        "data analytics": "Data Analytics",
+        "data visualization": "Data Visualization",
+        "natural language processing": "NLP",
+        "dashboard development": "Dashboard Development",
+        "data interpretation": "Data Interpretation",
+        "trend analysis": "Trend Analysis",
+        "problem solving": "Problem Solving",
+        "business intelligence": "Business Intelligence",
     }
 
     normalized = skill.strip().lower()
@@ -81,12 +134,23 @@ def normalize_skill(skill: str) -> str:
     )
 
 
+# ---------------------------------------------------------
+# Skill extraction
+# ---------------------------------------------------------
+
 def extract_skills(text: str) -> list[str]:
     """
     Extract known skills from text.
+
+    Uses case-insensitive word-boundary matching so that
+    skills such as SQL, Python, React, Power BI, etc.
+    can be detected reliably.
     """
 
     found_skills = []
+
+    if not text:
+        return found_skills
 
     text_lower = text.lower()
 
@@ -115,14 +179,22 @@ def extract_skills(text: str) -> list[str]:
     return found_skills
 
 
+# ---------------------------------------------------------
+# Preferred section extraction
+# ---------------------------------------------------------
+
 def extract_preferred_section(text: str) -> str:
     """
     Extract sentences containing preferred-skill language.
     """
 
+    if not text:
+        return ""
+
     pattern = (
         r"[^.!?\n]*"
-        r"\b(?:preferred|nice to have|good to have|bonus)\b"
+        r"\b(?:preferred|nice to have|good to have|bonus|"
+        r"preferred skills|nice-to-have)\b"
         r"[^.!?\n]*(?:[.!?]|$)"
     )
 
@@ -136,11 +208,16 @@ def extract_preferred_section(text: str) -> str:
 
     for match in matches:
         cleaned = match.strip()
+
         if cleaned:
             sections.append(cleaned)
 
     return " ".join(sections)
 
+
+# ---------------------------------------------------------
+# Required section extraction
+# ---------------------------------------------------------
 
 def extract_required_section(text: str) -> str:
     """
@@ -148,9 +225,13 @@ def extract_required_section(text: str) -> str:
     before extracting required skills.
     """
 
+    if not text:
+        return ""
+
     pattern = (
         r"[^.!?\n]*"
-        r"\b(?:preferred|nice to have|good to have|bonus)\b"
+        r"\b(?:preferred|nice to have|good to have|bonus|"
+        r"preferred skills|nice-to-have)\b"
         r"[^.!?\n]*(?:[.!?]|$)"
     )
 
@@ -160,11 +241,18 @@ def extract_required_section(text: str) -> str:
         text,
         flags=re.IGNORECASE,
     )
-    return required_text
+
+
+# ---------------------------------------------------------
+# Experience extraction
+# ---------------------------------------------------------
 
 def extract_experience_requirements(
     text: str,
 ) -> str | None:
+
+    if not text:
+        return None
 
     patterns = [
         r"\d+\+?\s*(?:years?|yrs?)"
@@ -188,9 +276,16 @@ def extract_experience_requirements(
     return None
 
 
+# ---------------------------------------------------------
+# Education extraction
+# ---------------------------------------------------------
+
 def extract_education_requirements(
     text: str,
 ) -> str | None:
+
+    if not text:
+        return None
 
     education_keywords = [
         "b.tech",
@@ -219,15 +314,124 @@ def extract_education_requirements(
             keyword in sentence_lower
             for keyword in education_keywords
         ):
-            matches.append(
-                sentence.strip()
-            )
+            cleaned = sentence.strip()
+
+            if cleaned:
+                matches.append(cleaned)
 
     if matches:
         return " ".join(matches)
 
     return None
 
+
+# ---------------------------------------------------------
+# Context-based professional skill extraction
+# ---------------------------------------------------------
+
+def extract_contextual_skills(text: str) -> list[str]:
+    """
+    Detect common job requirements that may not appear as
+    exact technology names.
+
+    This is especially useful for roles such as Data Analyst,
+    Business Analyst, Product Analyst, etc.
+    """
+
+    if not text:
+        return []
+
+    text_lower = text.lower()
+
+    contextual_patterns = {
+        "Dashboard Development": [
+            "dashboard",
+            "dashboards",
+            "dashboard creation",
+            "dashboard development",
+        ],
+
+        "Data Analysis": [
+            "data analysis",
+            "analyze data",
+            "analysing data",
+            "analyzing data",
+            "analyze datasets",
+            "analyzing datasets",
+        ],
+
+        "Data Interpretation": [
+            "interpret data",
+            "data interpretation",
+            "meaningful insights",
+            "derive insights",
+            "generate insights",
+        ],
+
+        "Trend Analysis": [
+            "trend analysis",
+            "analyzing trends",
+            "analyse trends",
+            "analyze trends",
+            "identify trends",
+        ],
+
+        "Data Visualization": [
+            "data visualization",
+            "data visualisation",
+            "visualize data",
+            "visualise data",
+            "visualization",
+            "visualisation",
+        ],
+
+        "Business Intelligence": [
+            "business intelligence",
+            "business decisions",
+            "business decision",
+            "decision making",
+            "decision-making",
+        ],
+
+        "Reporting": [
+            "reporting",
+            "reports",
+            "generate reports",
+            "business reports",
+        ],
+
+        "Communication": [
+            "communicating findings",
+            "communication skills",
+            "communicate findings",
+            "communicate insights",
+            "stakeholder communication",
+        ],
+
+        "Problem Solving": [
+            "problem solving",
+            "problem-solving",
+            "solve problems",
+            "analytical problem solving",
+        ],
+    }
+
+    found = []
+
+    for skill, patterns in contextual_patterns.items():
+        for pattern in patterns:
+            if pattern in text_lower:
+                if skill not in found:
+                    found.append(skill)
+
+                break
+
+    return found
+
+
+# ---------------------------------------------------------
+# Keywords
+# ---------------------------------------------------------
 
 def extract_keywords(
     text: str,
@@ -237,6 +441,7 @@ def extract_keywords(
 
     keywords = []
 
+    # Skills are also useful search/matching keywords.
     for skill in (
         required_skills
         + preferred_skills
@@ -255,11 +460,24 @@ def extract_keywords(
         "frontend",
         "software developer",
         "software engineer",
+        "data analyst",
+        "business analyst",
         "api",
         "development",
         "testing",
         "debugging",
         "database",
+        "datasets",
+        "structured datasets",
+        "data",
+        "analytics",
+        "dashboard",
+        "dashboards",
+        "trends",
+        "insights",
+        "stakeholders",
+        "communication",
+        "reporting",
         "cloud",
         "deployment",
         "agile",
@@ -275,9 +493,31 @@ def extract_keywords(
     return keywords
 
 
+# ---------------------------------------------------------
+# Main JD analyzer
+# ---------------------------------------------------------
+
 def analyze_job_description(
     text: str,
 ) -> dict[str, Any]:
+    """
+    Analyze a job description and extract:
+
+    - required skills
+    - preferred skills
+    - experience requirements
+    - education requirements
+    - keywords
+    """
+
+    if not text or not text.strip():
+        return {
+            "required_skills": [],
+            "preferred_skills": [],
+            "experience_requirements": None,
+            "education_requirements": None,
+            "keywords": [],
+        }
 
     preferred_text = extract_preferred_section(
         text
@@ -287,6 +527,7 @@ def analyze_job_description(
         text
     )
 
+    # Exact known technical/professional skills.
     required_skills = extract_skills(
         required_text
     )
@@ -295,8 +536,26 @@ def analyze_job_description(
         preferred_text
     )
 
-    # A skill identified as preferred should
-    # not remain in required skills.
+    # Add contextual skills such as dashboard development,
+    # trend analysis, communication, etc.
+    contextual_required = extract_contextual_skills(
+        required_text
+    )
+
+    contextual_preferred = extract_contextual_skills(
+        preferred_text
+    )
+
+    for skill in contextual_required:
+        if skill not in required_skills:
+            required_skills.append(skill)
+
+    for skill in contextual_preferred:
+        if skill not in preferred_skills:
+            preferred_skills.append(skill)
+
+    # A skill identified as preferred should not remain
+    # in required skills.
     required_skills = [
         skill
         for skill in required_skills

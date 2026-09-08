@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 type ReadinessData = {
   id: number
-  user_id: number
+  user_id?: number
   overall_score: number
   resume_score: number
   job_match_score: number
@@ -11,9 +11,10 @@ type ReadinessData = {
   coding_score: number
   skill_progress: number
   readiness_level: string
-  strengths: string[]
-  recommendations: string[]
-  candidate_skills: string[]
+  strengths?: string[]
+  recommendations?: string[]
+  candidate_skills?: string[]
+  updated_at?: string
 }
 
 type HistoryRecord = {
@@ -177,6 +178,10 @@ export default function Readiness() {
           ),
         ])
 
+        /*
+         * If any authenticated endpoint returns 401,
+         * send the user back to login.
+         */
         if (
           readinessResponse.status === 401 ||
           historyResponse.status === 401 ||
@@ -188,17 +193,100 @@ export default function Readiness() {
           return
         }
 
+        /*
+         * Readiness is the main endpoint.
+         * If this fails, show a proper error screen.
+         */
         if (!readinessResponse.ok) {
           throw new Error(
             'Unable to load placement readiness.',
           )
         }
 
-        const readinessResult: ReadinessData =
+        const readinessResult =
           await readinessResponse.json()
 
-        setData(readinessResult)
+        /*
+         * Normalize the backend response.
+         *
+         * This prevents the page from crashing if optional
+         * fields such as candidate_skills are missing.
+         */
+        const safeReadiness: ReadinessData = {
+          id: Number(readinessResult.id ?? 0),
 
+          user_id:
+            readinessResult.user_id !== undefined
+              ? Number(readinessResult.user_id)
+              : undefined,
+
+          overall_score: Number(
+            readinessResult.overall_score ?? 0,
+          ),
+
+          resume_score: Number(
+            readinessResult.resume_score ?? 0,
+          ),
+
+          job_match_score: Number(
+            readinessResult.job_match_score ?? 0,
+          ),
+
+          interview_score: Number(
+            readinessResult.interview_score ?? 0,
+          ),
+
+          coding_score: Number(
+            readinessResult.coding_score ?? 0,
+          ),
+
+          skill_progress: Number(
+            readinessResult.skill_progress ?? 0,
+          ),
+
+          readiness_level:
+            typeof readinessResult.readiness_level === 'string'
+              ? readinessResult.readiness_level
+              : 'Getting Started',
+
+          strengths: Array.isArray(
+            readinessResult.strengths,
+          )
+            ? readinessResult.strengths.filter(
+                (item: unknown): item is string =>
+                  typeof item === 'string',
+              )
+            : [],
+
+          recommendations: Array.isArray(
+            readinessResult.recommendations,
+          )
+            ? readinessResult.recommendations.filter(
+                (item: unknown): item is string =>
+                  typeof item === 'string',
+              )
+            : [],
+
+          candidate_skills: Array.isArray(
+            readinessResult.candidate_skills,
+          )
+            ? readinessResult.candidate_skills.filter(
+                (item: unknown): item is string =>
+                  typeof item === 'string',
+              )
+            : [],
+
+          updated_at:
+            typeof readinessResult.updated_at === 'string'
+              ? readinessResult.updated_at
+              : undefined,
+        }
+
+        setData(safeReadiness)
+
+        /*
+         * History is optional.
+         */
         if (historyResponse.ok) {
           const historyResult: HistoryResponse =
             await historyResponse.json()
@@ -208,23 +296,51 @@ export default function Readiness() {
               ? historyResult.history
               : [],
           )
+        } else {
+          setHistory([])
         }
 
+        /*
+         * Roadmap is optional.
+         */
         if (roadmapResponse.ok) {
-          const roadmapResult: RoadmapData =
+          const roadmapResult =
             await roadmapResponse.json()
 
-          setRoadmap(roadmapResult)
+          setRoadmap({
+            overall_progress: Number(
+              roadmapResult?.overall_progress ?? 0,
+            ),
+          })
+        } else {
+          setRoadmap(null)
         }
 
+        /*
+         * Daily plan is optional.
+         */
         if (dailyPlanResponse.ok) {
-          const dailyPlanResult: DailyPlanData =
+          const dailyPlanResult =
             await dailyPlanResponse.json()
 
-          setDailyPlan(dailyPlanResult)
+          setDailyPlan({
+            progress: Number(
+              dailyPlanResult?.progress ?? 0,
+            ),
+            total_tasks:
+              dailyPlanResult?.total_tasks !== undefined
+                ? Number(dailyPlanResult.total_tasks)
+                : undefined,
+            completed_tasks:
+              dailyPlanResult?.completed_tasks !== undefined
+                ? Number(dailyPlanResult.completed_tasks)
+                : undefined,
+          })
+        } else {
+          setDailyPlan(null)
         }
       } catch (err) {
-        console.error(err)
+        console.error('Placement readiness error:', err)
 
         setError(
           err instanceof Error
@@ -239,12 +355,19 @@ export default function Readiness() {
     loadData()
   }, [navigate])
 
+  /*
+   * Animate the main readiness score.
+   */
   useEffect(() => {
     if (!data) return
 
     setAnimatedScore(0)
 
-    const target = data.overall_score
+    const target = Math.max(
+      0,
+      Math.min(100, Number(data.overall_score) || 0),
+    )
+
     let current = 0
 
     const interval = window.setInterval(() => {
@@ -275,6 +398,9 @@ export default function Readiness() {
       ? history[history.length - 2]
       : null
 
+  /*
+   * Loading screen
+   */
   if (loading) {
     return (
       <div className="min-h-screen bg-[#050816] text-white">
@@ -291,6 +417,9 @@ export default function Readiness() {
     )
   }
 
+  /*
+   * Error screen
+   */
   if (error || !data) {
     return (
       <div className="min-h-screen bg-[#050816] text-white">
@@ -320,18 +449,27 @@ export default function Readiness() {
     )
   }
 
-  const score = data.overall_score
+  const score = Math.max(
+    0,
+    Math.min(100, Number(data.overall_score) || 0),
+  )
 
   const scoreDegrees = (animatedScore / 100) * 360
 
+  const strengths = data.strengths ?? []
+  const recommendations = data.recommendations ?? []
+  const candidateSkills = data.candidate_skills ?? []
+
   return (
     <div className="min-h-screen bg-[#050816] text-white">
+
       {/* =====================================================
           HEADER
          ===================================================== */}
 
       <header className="border-b border-slate-800/80 bg-[#070b17]/90 backdrop-blur-xl">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
+
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-400">
               CareerPilot AI
@@ -352,21 +490,26 @@ export default function Readiness() {
           >
             ← Dashboard
           </button>
+
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl px-6 py-8">
+
         {/* =====================================================
             HERO
            ===================================================== */}
 
         <section className="relative overflow-hidden rounded-3xl border border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 via-blue-500/5 to-transparent p-8 shadow-2xl shadow-cyan-950/20">
+
           <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
 
           <div className="relative grid gap-10 lg:grid-cols-[300px_1fr] lg:items-center">
+
             {/* Score ring */}
 
             <div className="flex justify-center">
+
               <div
                 className="relative flex h-64 w-64 items-center justify-center rounded-full"
                 style={{
@@ -376,7 +519,9 @@ export default function Readiness() {
                   )`,
                 }}
               >
+
                 <div className="flex h-52 w-52 flex-col items-center justify-center rounded-full bg-[#080d1c]">
+
                   <span className="text-6xl font-black tracking-tight">
                     {animatedScore}
                   </span>
@@ -391,13 +536,17 @@ export default function Readiness() {
                     {getLevelIcon(data.readiness_level)}{' '}
                     {data.readiness_level}
                   </span>
+
                 </div>
+
               </div>
+
             </div>
 
             {/* Hero text */}
 
             <div>
+
               <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-300">
                 ✦ AI Readiness Intelligence
               </div>
@@ -411,12 +560,15 @@ export default function Readiness() {
               </h2>
 
               <p className="mt-4 max-w-2xl leading-7 text-slate-400">
-                {getLevelDescription(data.readiness_level)}
+                {getLevelDescription(
+                  data.readiness_level,
+                )}
               </p>
 
               {/* Growth badge */}
 
               <div className="mt-6 flex flex-wrap gap-3">
+
                 <div className="rounded-xl border border-slate-800 bg-[#0b1222] px-4 py-3">
                   <p className="text-xs text-slate-500">
                     Historical Growth
@@ -462,8 +614,10 @@ export default function Readiness() {
                     </p>
                   </div>
                 )}
+
               </div>
             </div>
+
           </div>
         </section>
 
@@ -472,6 +626,7 @@ export default function Readiness() {
            ===================================================== */}
 
         <section className="mt-8">
+
           <div className="mb-4">
             <h2 className="text-lg font-bold">
               Core Performance
@@ -483,6 +638,7 @@ export default function Readiness() {
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+
             {[
               {
                 name: 'Resume',
@@ -510,11 +666,14 @@ export default function Readiness() {
                 icon: '🧠',
               },
             ].map((metric) => (
+
               <div
                 key={metric.name}
                 className="rounded-2xl border border-slate-800 bg-[#0b1222] p-5 transition hover:-translate-y-1 hover:border-cyan-500/30"
               >
+
                 <div className="flex items-center justify-between">
+
                   <span className="text-xl">
                     {metric.icon}
                   </span>
@@ -524,6 +683,7 @@ export default function Readiness() {
                   >
                     {metric.score}
                   </span>
+
                 </div>
 
                 <p className="mt-4 text-sm font-semibold text-slate-200">
@@ -531,16 +691,28 @@ export default function Readiness() {
                 </p>
 
                 <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-800">
+
                   <div
                     className={`h-full rounded-full transition-all ${getProgressColor(metric.score)}`}
                     style={{
-                      width: `${metric.score}%`,
+                      width: `${Math.max(
+                        0,
+                        Math.min(
+                          100,
+                          Number(metric.score) || 0,
+                        ),
+                      )}%`,
                     }}
                   />
+
                 </div>
+
               </div>
+
             ))}
+
           </div>
+
         </section>
 
         {/* =====================================================
@@ -548,8 +720,11 @@ export default function Readiness() {
            ===================================================== */}
 
         <section className="mt-8 rounded-3xl border border-slate-800 bg-[#0b1222] p-6 shadow-xl">
+
           <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+
             <div>
+
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cyan-400">
                 Progress Tracking
               </p>
@@ -561,10 +736,12 @@ export default function Readiness() {
               <p className="mt-1 text-sm text-slate-500">
                 Your readiness score over time
               </p>
+
             </div>
 
             {previousHistory && latestHistory && (
               <div className="rounded-xl border border-slate-800 bg-[#080d1c] px-4 py-3">
+
                 <p className="text-xs text-slate-500">
                   Latest Change
                 </p>
@@ -581,18 +758,24 @@ export default function Readiness() {
                   previousHistory.overall_score
                     ? '↑'
                     : '↓'}{' '}
+
                   {Math.abs(
                     latestHistory.overall_score -
                       previousHistory.overall_score,
                   )}{' '}
+
                   points
                 </p>
+
               </div>
             )}
+
           </div>
 
           {history.length === 0 ? (
+
             <div className="mt-6 rounded-2xl border border-dashed border-slate-700 p-10 text-center">
+
               <div className="text-4xl">
                 📊
               </div>
@@ -605,35 +788,48 @@ export default function Readiness() {
                 Your readiness snapshots will appear here as
                 CareerPilot tracks your progress.
               </p>
+
             </div>
+
           ) : (
+
             <div className="mt-8">
+
               {/* Chart */}
 
               <div className="relative h-80 overflow-hidden rounded-2xl border border-slate-800 bg-[#080d1c] p-5">
+
                 {/* Horizontal grid */}
 
                 <div className="pointer-events-none absolute inset-x-5 top-5 bottom-12 flex flex-col justify-between">
+
                   {[100, 75, 50, 25, 0].map(
                     (value) => (
+
                       <div
                         key={value}
                         className="flex items-center gap-3"
                       >
+
                         <span className="w-7 text-right text-[10px] text-slate-600">
                           {value}
                         </span>
 
                         <div className="h-px flex-1 bg-slate-800/80" />
+
                       </div>
+
                     ),
                   )}
+
                 </div>
 
                 {/* Chart points */}
 
                 <div className="absolute inset-x-14 top-5 bottom-12">
+
                   {history.map((item, index) => {
+
                     const left =
                       history.length === 1
                         ? 50
@@ -641,10 +837,18 @@ export default function Readiness() {
                             (history.length - 1)) *
                           100
 
-                    const top =
-                      100 - item.overall_score
+                    const safeScore = Math.max(
+                      0,
+                      Math.min(
+                        100,
+                        Number(item.overall_score) || 0,
+                      ),
+                    )
+
+                    const top = 100 - safeScore
 
                     return (
+
                       <div
                         key={item.id}
                         className="absolute"
@@ -655,10 +859,13 @@ export default function Readiness() {
                             'translate(-50%, -50%)',
                         }}
                       >
+
                         <div className="group relative">
+
                           <div className="h-4 w-4 rounded-full border-4 border-cyan-300 bg-cyan-500 shadow-lg shadow-cyan-500/40" />
 
                           <div className="pointer-events-none absolute bottom-7 left-1/2 hidden w-32 -translate-x-1/2 rounded-xl border border-slate-700 bg-[#0b1222] p-3 text-center shadow-xl group-hover:block">
+
                             <p className="text-lg font-black text-cyan-300">
                               {item.overall_score}
                             </p>
@@ -668,9 +875,13 @@ export default function Readiness() {
                                 item.created_at,
                               )}
                             </p>
+
                           </div>
+
                         </div>
+
                       </div>
+
                     )
                   })}
 
@@ -679,8 +890,31 @@ export default function Readiness() {
                   {history.length > 1 &&
                     history.slice(1).map(
                       (item, index) => {
+
                         const previous =
                           history[index]
+
+                        const previousScore =
+                          Math.max(
+                            0,
+                            Math.min(
+                              100,
+                              Number(
+                                previous.overall_score,
+                              ) || 0,
+                            ),
+                          )
+
+                        const currentScore =
+                          Math.max(
+                            0,
+                            Math.min(
+                              100,
+                              Number(
+                                item.overall_score,
+                              ) || 0,
+                            ),
+                          )
 
                         const x1 =
                           (index /
@@ -693,17 +927,15 @@ export default function Readiness() {
                           100
 
                         const y1 =
-                          100 -
-                          previous.overall_score
+                          100 - previousScore
 
                         const y2 =
-                          100 -
-                          item.overall_score
+                          100 - currentScore
 
                         const dx = x2 - x1
                         const dy = y2 - y1
 
-                        const length = Math.sqrt(
+                        const lineLength = Math.sqrt(
                           dx * dx + dy * dy,
                         )
 
@@ -712,47 +944,59 @@ export default function Readiness() {
                           (180 / Math.PI)
 
                         return (
+
                           <div
                             key={`line-${item.id}`}
                             className="absolute h-0.5 origin-left rounded-full bg-cyan-400"
                             style={{
                               left: `${x1}%`,
                               top: `${y1}%`,
-                              width: `${length}%`,
+                              width: `${lineLength}%`,
                               transform: `rotate(${angle}deg)`,
                             }}
                           />
+
                         )
                       },
                     )}
+
                 </div>
 
                 {/* X axis labels */}
 
                 <div className="absolute bottom-3 left-14 right-5 flex justify-between">
+
                   {history.map((item) => (
+
                     <span
                       key={`date-${item.id}`}
                       className="text-[10px] text-slate-600"
                     >
                       {formatDate(item.created_at)}
                     </span>
+
                   ))}
+
                 </div>
+
               </div>
 
               {/* History list */}
 
               <div className="mt-5 grid gap-3">
+
                 {history
                   .slice()
                   .reverse()
                   .map((item, index) => (
+
                     <div
                       key={`history-row-${item.id}`}
                       className="flex flex-col gap-3 rounded-2xl border border-slate-800 bg-[#080d1c] p-4 sm:flex-row sm:items-center sm:justify-between"
                     >
+
                       <div className="flex items-center gap-3">
+
                         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/10 text-lg">
                           {index === 0
                             ? '⚡'
@@ -760,6 +1004,7 @@ export default function Readiness() {
                         </div>
 
                         <div>
+
                           <p className="text-sm font-bold">
                             {item.readiness_level}
                           </p>
@@ -769,10 +1014,13 @@ export default function Readiness() {
                               item.created_at,
                             )}
                           </p>
+
                         </div>
+
                       </div>
 
                       <div className="flex flex-wrap gap-4 text-xs">
+
                         <span>
                           Overall{' '}
                           <strong className="text-cyan-300">
@@ -800,12 +1048,19 @@ export default function Readiness() {
                             {item.coding_score}
                           </strong>
                         </span>
+
                       </div>
+
                     </div>
+
                   ))}
+
               </div>
+
             </div>
+
           )}
+
         </section>
 
         {/* =====================================================
@@ -813,9 +1068,15 @@ export default function Readiness() {
            ===================================================== */}
 
         <section className="mt-8 grid gap-5 md:grid-cols-2">
+
+          {/* Career Roadmap */}
+
           <div className="rounded-3xl border border-slate-800 bg-[#0b1222] p-6">
+
             <div className="flex items-center justify-between">
+
               <div>
+
                 <p className="text-xs uppercase tracking-wider text-slate-500">
                   Career Roadmap
                 </p>
@@ -823,14 +1084,17 @@ export default function Readiness() {
                 <h3 className="mt-1 text-lg font-bold">
                   Learning Progress
                 </h3>
+
               </div>
 
               <span className="text-2xl">
                 🗺️
               </span>
+
             </div>
 
             <div className="mt-6 flex items-end justify-between">
+
               <span className="text-4xl font-black">
                 {roadmap?.overall_progress ?? 0}%
               </span>
@@ -838,15 +1102,26 @@ export default function Readiness() {
               <span className="text-xs text-slate-500">
                 Roadmap completion
               </span>
+
             </div>
 
             <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-800">
+
               <div
                 className="h-full rounded-full bg-cyan-400 transition-all"
                 style={{
-                  width: `${roadmap?.overall_progress ?? 0}%`,
+                  width: `${Math.max(
+                    0,
+                    Math.min(
+                      100,
+                      Number(
+                        roadmap?.overall_progress ?? 0,
+                      ),
+                    ),
+                  )}%`,
                 }}
               />
+
             </div>
 
             <button
@@ -857,11 +1132,17 @@ export default function Readiness() {
             >
               Continue roadmap →
             </button>
+
           </div>
 
+          {/* Daily Learning */}
+
           <div className="rounded-3xl border border-slate-800 bg-[#0b1222] p-6">
+
             <div className="flex items-center justify-between">
+
               <div>
+
                 <p className="text-xs uppercase tracking-wider text-slate-500">
                   Daily Learning
                 </p>
@@ -869,14 +1150,17 @@ export default function Readiness() {
                 <h3 className="mt-1 text-lg font-bold">
                   Today's Progress
                 </h3>
+
               </div>
 
               <span className="text-2xl">
                 ⚡
               </span>
+
             </div>
 
             <div className="mt-6 flex items-end justify-between">
+
               <span className="text-4xl font-black">
                 {dailyPlan?.progress ?? 0}%
               </span>
@@ -884,15 +1168,26 @@ export default function Readiness() {
               <span className="text-xs text-slate-500">
                 Today's plan
               </span>
+
             </div>
 
             <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-800">
+
               <div
                 className="h-full rounded-full bg-emerald-400 transition-all"
                 style={{
-                  width: `${dailyPlan?.progress ?? 0}%`,
+                  width: `${Math.max(
+                    0,
+                    Math.min(
+                      100,
+                      Number(
+                        dailyPlan?.progress ?? 0,
+                      ),
+                    ),
+                  )}%`,
                 }}
               />
+
             </div>
 
             <button
@@ -903,7 +1198,9 @@ export default function Readiness() {
             >
               Continue today's plan →
             </button>
+
           </div>
+
         </section>
 
         {/* =====================================================
@@ -911,13 +1208,19 @@ export default function Readiness() {
            ===================================================== */}
 
         <section className="mt-8 grid gap-5 lg:grid-cols-2">
+
+          {/* Strengths */}
+
           <div className="rounded-3xl border border-emerald-500/10 bg-[#0b1222] p-6">
+
             <div className="flex items-center gap-3">
+
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
                 💪
               </div>
 
               <div>
+
                 <h2 className="font-bold">
                   Your Strengths
                 </h2>
@@ -925,34 +1228,58 @@ export default function Readiness() {
                 <p className="text-xs text-slate-500">
                   Areas where you're performing well
                 </p>
+
               </div>
+
             </div>
 
             <div className="mt-5 space-y-3">
-              {data.strengths.map(
-                (strength, index) => (
-                  <div
-                    key={`${strength}-${index}`}
-                    className="rounded-xl border border-slate-800 bg-[#080d1c] p-4 text-sm text-slate-300"
-                  >
-                    <span className="mr-2 text-emerald-400">
-                      ✓
-                    </span>
 
-                    {strength}
-                  </div>
-                ),
+              {strengths.length === 0 ? (
+
+                <div className="rounded-xl border border-dashed border-slate-700 bg-[#080d1c] p-4 text-sm text-slate-500">
+                  Strength insights will appear as you complete more activities.
+                </div>
+
+              ) : (
+
+                strengths.map(
+                  (strength, index) => (
+
+                    <div
+                      key={`${strength}-${index}`}
+                      className="rounded-xl border border-slate-800 bg-[#080d1c] p-4 text-sm text-slate-300"
+                    >
+
+                      <span className="mr-2 text-emerald-400">
+                        ✓
+                      </span>
+
+                      {strength}
+
+                    </div>
+
+                  ),
+                )
+
               )}
+
             </div>
+
           </div>
 
+          {/* Recommendations */}
+
           <div className="rounded-3xl border border-orange-500/10 bg-[#0b1222] p-6">
+
             <div className="flex items-center gap-3">
+
               <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-orange-500/10">
                 🎯
               </div>
 
               <div>
+
                 <h2 className="font-bold">
                   Recommended Focus
                 </h2>
@@ -960,26 +1287,46 @@ export default function Readiness() {
                 <p className="text-xs text-slate-500">
                   Actions that can improve your score
                 </p>
+
               </div>
+
             </div>
 
             <div className="mt-5 space-y-3">
-              {data.recommendations.map(
-                (recommendation, index) => (
-                  <div
-                    key={`${recommendation}-${index}`}
-                    className="rounded-xl border border-slate-800 bg-[#080d1c] p-4 text-sm text-slate-300"
-                  >
-                    <span className="mr-2 text-orange-400">
-                      →
-                    </span>
 
-                    {recommendation}
-                  </div>
-                ),
+              {recommendations.length === 0 ? (
+
+                <div className="rounded-xl border border-dashed border-slate-700 bg-[#080d1c] p-4 text-sm text-slate-500">
+                  Recommendations will appear as CareerPilot analyzes your progress.
+                </div>
+
+              ) : (
+
+                recommendations.map(
+                  (recommendation, index) => (
+
+                    <div
+                      key={`${recommendation}-${index}`}
+                      className="rounded-xl border border-slate-800 bg-[#080d1c] p-4 text-sm text-slate-300"
+                    >
+
+                      <span className="mr-2 text-orange-400">
+                        →
+                      </span>
+
+                      {recommendation}
+
+                    </div>
+
+                  ),
+                )
+
               )}
+
             </div>
+
           </div>
+
         </section>
 
         {/* =====================================================
@@ -987,8 +1334,11 @@ export default function Readiness() {
            ===================================================== */}
 
         <section className="mt-8 rounded-3xl border border-slate-800 bg-[#0b1222] p-6">
+
           <div className="flex items-center justify-between">
+
             <div>
+
               <h2 className="font-bold">
                 Detected Skills
               </h2>
@@ -996,25 +1346,42 @@ export default function Readiness() {
               <p className="mt-1 text-xs text-slate-500">
                 Skills extracted from your latest resume
               </p>
+
             </div>
 
             <span className="rounded-full bg-cyan-500/10 px-3 py-1 text-xs font-bold text-cyan-300">
-              {data.candidate_skills.length} skills
+              {candidateSkills.length} skills
             </span>
+
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
-            {data.candidate_skills.map(
-              (skill) => (
-                <span
-                  key={skill}
-                  className="rounded-full border border-slate-700 bg-[#080d1c] px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-cyan-500/40 hover:text-cyan-300"
-                >
-                  {skill}
-                </span>
-              ),
+
+            {candidateSkills.length === 0 ? (
+
+              <div className="w-full rounded-xl border border-dashed border-slate-700 bg-[#080d1c] p-5 text-center text-sm text-slate-500">
+                No detected skills are available in the current readiness response.
+              </div>
+
+            ) : (
+
+              candidateSkills.map(
+                (skill, index) => (
+
+                  <span
+                    key={`${skill}-${index}`}
+                    className="rounded-full border border-slate-700 bg-[#080d1c] px-3 py-1.5 text-xs font-medium text-slate-300 transition hover:border-cyan-500/40 hover:text-cyan-300"
+                  >
+                    {skill}
+                  </span>
+
+                ),
+              )
+
             )}
+
           </div>
+
         </section>
 
         {/* =====================================================
@@ -1022,10 +1389,12 @@ export default function Readiness() {
            ===================================================== */}
 
         <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+
           <button
             onClick={() => navigate('/resume')}
             className="group rounded-2xl border border-slate-800 bg-[#0b1222] p-5 text-left transition hover:-translate-y-1 hover:border-cyan-500/30"
           >
+
             <span className="text-2xl">
               📄
             </span>
@@ -1041,6 +1410,7 @@ export default function Readiness() {
             <span className="mt-4 block text-xs font-semibold text-cyan-400">
               Open Resume →
             </span>
+
           </button>
 
           <button
@@ -1049,6 +1419,7 @@ export default function Readiness() {
             }
             className="group rounded-2xl border border-slate-800 bg-[#0b1222] p-5 text-left transition hover:-translate-y-1 hover:border-cyan-500/30"
           >
+
             <span className="text-2xl">
               🎯
             </span>
@@ -1064,6 +1435,7 @@ export default function Readiness() {
             <span className="mt-4 block text-xs font-semibold text-cyan-400">
               Analyze Match →
             </span>
+
           </button>
 
           <button
@@ -1072,6 +1444,7 @@ export default function Readiness() {
             }
             className="group rounded-2xl border border-slate-800 bg-[#0b1222] p-5 text-left transition hover:-translate-y-1 hover:border-cyan-500/30"
           >
+
             <span className="text-2xl">
               🎤
             </span>
@@ -1087,6 +1460,7 @@ export default function Readiness() {
             <span className="mt-4 block text-xs font-semibold text-cyan-400">
               Start Interview →
             </span>
+
           </button>
 
           <button
@@ -1095,6 +1469,7 @@ export default function Readiness() {
             }
             className="group rounded-2xl border border-slate-800 bg-[#0b1222] p-5 text-left transition hover:-translate-y-1 hover:border-cyan-500/30"
           >
+
             <span className="text-2xl">
               💻
             </span>
@@ -1110,7 +1485,9 @@ export default function Readiness() {
             <span className="mt-4 block text-xs font-semibold text-cyan-400">
               Open Coding →
             </span>
+
           </button>
+
         </section>
 
         {/* =====================================================
@@ -1118,6 +1495,7 @@ export default function Readiness() {
            ===================================================== */}
 
         <section className="mt-8 overflow-hidden rounded-3xl border border-cyan-500/20 bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10 p-8 text-center">
+
           <div className="text-4xl">
             🤖
           </div>
@@ -1140,7 +1518,9 @@ export default function Readiness() {
           >
             Open CareerPilot AI →
           </button>
+
         </section>
+
       </main>
     </div>
   )

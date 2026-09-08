@@ -17,6 +17,8 @@ def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
 ) -> User:
+    """Return the authenticated user from a valid JWT."""
+
     payload = decode_access_token(token)
 
     if payload is None:
