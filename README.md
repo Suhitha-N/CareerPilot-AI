@@ -251,3 +251,48 @@ Passwords are hashed using Argon2 rather than stored as plain text.
 B.Tech --- Computer Science Engineering
 
 CareerPilot AI --- Intelligent Placement & Career Intelligence Platform
+
+## Screenshots
+
+### 1. Register
+![Register](docs/screenshots/01-register.png)
+
+### 2. Login
+![Login](docs/screenshots/02-login.png)
+
+### 3. Dashboard Overview
+![Dashboard Overview](docs/screenshots/03-dashboard-overview.png)
+
+### 4. Dashboard Tools
+![Dashboard Tools](docs/screenshots/04-dashboard-tools.png)
+
+### 5. Resume Analyzer — Upload
+![Resume Upload](docs/screenshots/05-resume-upload.png)
+
+### 6. Resume Analyzer — Results
+![Resume Results](docs/screenshots/06-resume-results.png)
+
+### 7. Job Match Intelligence
+![Job Match](docs/screenshots/07-job-match.png)
+
+### 8. AI Mock Interview — Setup
+![Interview Setup](docs/screenshots/08-interview-setup.png)
+
+### 9. AI Mock Interview — Performance Report
+![Interview Report](docs/screenshots/09-interview-report.png)
+
+### 10. Coding Assessment
+![Coding Assessment](docs/screenshots/10-coding-assessment.png)
+
+### 11. Career Roadmap
+![Career Roadmap](docs/screenshots/11-career-roadmap.png)
+
+### 12. Placement Readiness
+![Placement Readiness](docs/screenshots/12-placement-readiness.png)
+
+### 13. CareerPilot AI Assistant
+![AI Assistant](docs/screenshots/13-ai-assistant.png)
+
+### 14. Final Dashboard Progress
+![Final Dashboard](docs/screenshots/14-final-dashboard.png)
+
