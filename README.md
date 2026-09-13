@@ -1,15 +1,12 @@
-🚀 CareerPilot AI
+# 🚀 CareerPilot AI
 
-Intelligent Placement & Career Intelligence Platform
+## Intelligent Placement & Career Intelligence Platform
 
-CareerPilot AI is an AI-powered placement preparation platform designed
-to help students understand their job readiness, identify skill gaps,
-practice interviews and coding, follow a personalized career roadmap,
-and receive context-aware career guidance.
+CareerPilot AI is an AI-powered placement preparation platform designed to help students understand their job readiness, identify skill gaps, practice interviews and coding, follow a personalized career roadmap, and receive context-aware career guidance.
 
-Instead of treating placement preparation as separate tools, CareerPilot
-AI connects the complete preparation journey into one system:
+Instead of treating placement preparation as separate tools, CareerPilot AI connects the complete preparation journey into one system:
 
+```text
 Resume
   ↓
 Resume Intelligence
@@ -27,154 +24,150 @@ Placement Readiness
 AI Career Assistant
   ↓
 Continuous Progress Tracking
+```
 
-✨ Why CareerPilot AI?
+---
 
-Students often have to use different platforms for resume checking,
-job matching, interview preparation, coding practice, and career planning.
+## ✨ Why CareerPilot AI?
 
-CareerPilot AI brings these activities together and turns them into a
-connected preparation workflow.
+Students often have to use different platforms for resume checking, job matching, interview preparation, coding practice, and career planning.
 
-Core goals
+CareerPilot AI brings these activities together and turns them into a connected preparation workflow.
 
-Analyze a student's resume and ATS readiness
+### Core Goals
 
-Extract technical and professional skills
+**Resume Analysis**  
+Analyze a student's resume and ATS readiness.
 
-Compare a resume with a target job description
+**Skill Extraction**  
+Extract technical and professional skills.
 
-Identify missing and important skills
+**Job Matching**  
+Compare a resume with a target job description.
 
-Generate a personalized learning roadmap
+**Skill Gap Identification**  
+Identify missing and important skills.
 
-Conduct adaptive mock interviews
+**Personalized Roadmap**  
+Generate a personalized learning roadmap.
 
-Evaluate coding submissions and test cases
+**Adaptive Interview Practice**  
+Conduct adaptive mock interviews.
 
-Calculate an overall placement readiness score
+**Coding Evaluation**  
+Evaluate coding submissions and test cases.
 
-Track readiness progress over time
+**Placement Readiness**  
+Calculate an overall placement readiness score.
 
-Provide personalized AI career guidance
+**Progress Tracking**  
+Track readiness progress over time.
 
-Maintain authenticated, user-scoped career data
+**AI Career Guidance**  
+Provide personalized AI career guidance.
 
-🎯 Key Features
+**Secure Data Management**  
+Maintain authenticated, user-scoped career data.
 
-Module
+---
 
-What it does
+## 🎯 Key Features
 
-📄 Resume Intelligence
+| Module | What it does |
+|---|---|
+| 📄 **Resume Intelligence** | Resume upload, parsing, ATS scoring, skill extraction, projects, education, experience and recommendations |
+| 🎯 **Job Match Intelligence** | Compares resume skills with a target job and identifies skill gaps |
+| 🗺️ **Career Roadmap** | Converts skill gaps into a structured multi-week learning journey |
+| 🎤 **Adaptive AI Interview** | Personalized technical/behavioral practice with difficulty adaptation and performance analysis |
+| 💻 **Coding Intelligence** | Coding problems, submissions, test cases, evaluation and coding analytics |
+| 📊 **Placement Readiness** | Combines multiple preparation signals into an overall readiness score |
+| 📈 **Progress Tracking** | Stores readiness snapshots and visualizes improvement over time |
+| 📅 **Daily Learning** | Provides focused daily preparation tasks and progress |
+| 🤖 **CareerPilot AI Assistant** | Context-aware career guidance based on resume, target job, skills, readiness and roadmap |
+| 🔐 **Authentication** | JWT-based authentication with protected user-specific resources |
+| 🛡️ **Secure Data Access** | API ownership checks ensure users access their own career data |
 
-Resume upload, parsing, ATS scoring, skill extraction, projects, education, experience and recommendations
+---
 
-🎯 Job Match Intelligence
+# 📸 Screenshots
 
-Compares resume skills with a target job and identifies skill gaps
+### 1. Register
 
-🗺️ Career Roadmap
-
-Converts skill gaps into a structured multi-week learning journey
-
-🎤 Adaptive AI Interview
-
-Personalized technical/behavioral practice with difficulty adaptation and performance analysis
-
-💻 Coding Intelligence
-
-Coding problems, submissions, test cases, evaluation and coding analytics
-
-📊 Placement Readiness
-
-Combines multiple preparation signals into an overall readiness score
-
-📈 Progress Tracking
-
-Stores readiness snapshots and visualizes improvement over time
-
-📅 Daily Learning
-
-Provides focused daily preparation tasks and progress
-
-🤖 CareerPilot AI Assistant
-
-Context-aware career guidance based on resume, target job, skills, readiness and roadmap
-
-🔐 Authentication
-
-JWT-based authentication with protected user-specific resources
-
-🛡️ Secure Data Access
-
-API ownership checks ensure users access their own career data
-
-📸 Screenshots
-
-1. Register
 ![Register](docs/screenshots/01-register.png)
 
-2. Login
+### 2. Login
+
 ![Login](docs/screenshots/02-login.png)
 
-3. Dashboard Overview
+### 3. Dashboard Overview
+
 ![Dashboard Overview](docs/screenshots/03-dashboard-overview.png)
 
-4. Dashboard Tools
+### 4. Dashboard Tools
+
 ![Dashboard Tools](docs/screenshots/04-dashboard-tools.png)
 
-5. Resume Analyzer   Upload
+### 5. Resume Analyzer — Upload
+
 ![Resume Upload](docs/screenshots/05-resume-upload.png)
 
-6. Resume Analyzer   Results
+### 6. Resume Analyzer — Results
+
 ![Resume Results](docs/screenshots/06-resume-results.png)
 
-7. Job Match Intelligence
+### 7. Job Match Intelligence
+
 ![Job Match](docs/screenshots/07-job-match.png)
 
-8. AI Mock Interview   Setup
+### 8. AI Mock Interview — Setup
+
 ![Interview Setup](docs/screenshots/08-interview-setup.png)
 
-9. AI Mock Interview   Performance Report
+### 9. AI Mock Interview — Performance Report
+
 ![Interview Report](docs/screenshots/09-interview-report.png)
 
-10. Coding Assessment
+### 10. Coding Assessment
+
 ![Coding Assessment](docs/screenshots/10-coding-assessment.png)
 
-11. Career Roadmap
+### 11. Career Roadmap
+
 ![Career Roadmap](docs/screenshots/11-career-roadmap.png)
 
-12. Placement Readiness
+### 12. Placement Readiness
+
 ![Placement Readiness](docs/screenshots/12-placement-readiness.png)
 
-13. CareerPilot AI Assistant
+### 13. CareerPilot AI Assistant
+
 ![AI Assistant](docs/screenshots/13-ai-assistant.png)
 
-14. Final Dashboard Progress
+### 14. Final Dashboard Progress
+
 ![Final Dashboard](docs/screenshots/14-final-dashboard.png)
 
+---
 
-🧠 AI & Intelligence Layer
+# 🧠 AI & Intelligence Layer
 
-CareerPilot AI uses a local AI setup so the project can be developed and
-demonstrated without depending on paid LLM APIs.
+CareerPilot AI uses a local AI setup so the project can be developed and demonstrated without depending on paid LLM APIs.
 
-Local AI
+## Local AI
 
-Ollama
+**Ollama**
 
-Llama 3.2 1B
+**Llama 3.2 1B**
 
-Python AI/service layer
+**Python AI/service layer**
 
-Prompt-based career guidance
+**Prompt-based career guidance**
 
-Context-aware responses
+**Context-aware responses**
 
-The AI assistant can use information from the user's preparation
-profile, including:
+The AI assistant can use information from the user's preparation profile, including:
 
+```text
 Resume
 Target Job
 Skill Gaps
@@ -183,13 +176,15 @@ Interview Performance
 Coding Progress
 Career Roadmap
 Daily Learning
+```
 
-This allows the assistant to provide recommendations that are connected
-to the student's actual preparation state rather than generic career
-advice.
+This allows the assistant to provide recommendations that are connected to the student's actual preparation state rather than generic career advice.
 
-🏗️ System Architecture
+---
 
+# 🏗️ System Architecture
+
+```text
                     ┌──────────────────────────┐
                     │       React Frontend      │
                     │   TypeScript + Tailwind   │
@@ -216,87 +211,93 @@ advice.
                        │ Interview / Coding │
                        │ Readiness / Roadmap│
                        └────────────────────┘
+```
 
-🛠️ Technology Stack
+---
 
-Frontend
+# 🛠️ Technology Stack
 
-React
+## Frontend
 
-TypeScript
+**React**
 
-Tailwind CSS
+**TypeScript**
 
-React Router
+**Tailwind CSS**
 
-Vite
+**React Router**
 
-Backend
+**Vite**
 
-Python
+## Backend
 
-FastAPI
+**Python**
 
-Uvicorn
+**FastAPI**
 
-Pydantic
+**Uvicorn**
 
-SQLAlchemy
+**Pydantic**
 
-Database
+**SQLAlchemy**
 
-PostgreSQL
+## Database
 
-Alembic migrations
+**PostgreSQL**
 
-AI / NLP
+**Alembic migrations**
 
-Ollama
+## AI / NLP
 
-Llama 3.2
+**Ollama**
 
-Resume text extraction
+**Llama 3.2**
 
-Job-description skill extraction
+**Resume text extraction**
 
-Rule-based skill normalization
+**Job-description skill extraction**
 
-Context-aware AI assistance
+**Rule-based skill normalization**
 
-Authentication & Security
+**Context-aware AI assistance**
 
-JWT authentication
+## Authentication & Security
 
-Argon2 password hashing
+**JWT authentication**
 
-Role-based access concepts
+**Argon2 password hashing**
 
-User-scoped database queries
+**Role-based access concepts**
 
-Protected API endpoints
+**User-scoped database queries**
 
-File type and size validation
+**Protected API endpoints**
 
-Restricted coding execution
+**File type and size validation**
 
-DevOps / Development
+**Restricted coding execution**
 
-Docker
+## DevOps / Development
 
-Docker Compose
+**Docker**
 
-Git
+**Docker Compose**
 
-Environment-based configuration
+**Git**
 
-🔐 Security
+**Environment-based configuration**
+
+---
+
+# 🔐 Security
 
 Security was considered at the API and data-access level.
 
-Authentication
+## Authentication
 
 Users authenticate through JWT tokens.
 
+```text
 Register
    ↓
 Login
@@ -304,13 +305,16 @@ Login
 JWT Access Token
    ↓
 Authenticated API Requests
+```
 
 Passwords are hashed using Argon2 rather than stored as plain text.
 
-About the Developer
+---
 
-Suhitha Natakam
+# 👩‍💻 About the Developer
 
-B.Tech --- Computer Science Engineering
+**Suhitha Natakam**
 
-CareerPilot AI --- Intelligent Placement & Career Intelligence Platform
+**B.Tech — Computer Science Engineering**
+
+**CareerPilot AI — Intelligent Placement & Career Intelligence Platform**
